@@ -456,10 +456,10 @@ namespace xcom
     {
         xcom_io w{};
 
-        if (!supported_version(save.hdr.version)) {
-            throw xcom::error::unsupported_version(save.hdr.version);
+        if (!supported_version(std::get<0>(save.hdr).version)) {
+            throw xcom::error::unsupported_version(std::get<0>(save.hdr).version);
         }
-        if(xcom_version::enemy_unknown == save.hdr.version)
+        if(xcom_version::enemy_unknown == std::get<0>(save.hdr).version)
         {
             write_actor_table_EU(w, save.actors);
         }
@@ -467,9 +467,9 @@ namespace xcom
         {
             write_actor_table(w, save.actors);
         }
-        write_checkpoint_chunks(w, save.checkpoints, save.hdr.version);
-        xcom_io compressed{ compress(w, save.hdr.version) };
-        write_header(compressed, save.hdr);
+        write_checkpoint_chunks(w, save.checkpoints, std::get<0>(save.hdr).version);
+        xcom_io compressed{ compress(w, std::get<0>(save.hdr).version) };
+        write_header(compressed, std::get<0>(save.hdr));
         return compressed.release();
     }
 

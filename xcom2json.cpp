@@ -524,7 +524,7 @@ void buildJson(const saved_game& save, json_writer& w)
     w.begin_object();
 
     // Write the header
-    const header &hdr = save.hdr;
+    const header &hdr = std::get<0>(save.hdr);
 
     w.write_key("header");
     w.begin_object();

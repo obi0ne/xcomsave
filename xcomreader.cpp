@@ -28,19 +28,50 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <cstdlib>
 #include <cstring>
 
+#include <variant>
+
 namespace xcom
 {
     static const size_t compressed_data_start = 1024;
 
-    property_list read_properties(xcom_io &r, xcom_version version);
 
-    header read_header(xcom_io &r)
+    // forward functions
+    property_list read_properties(xcom_io &r, xcom_version version);
+    header decode_xcom1_header(xcom_io& r, xcom_version ver);
+    header_xcom2_wotc decode_xcom2_header(xcom_io& r, xcom_version ver);
+
+    std::variant<header, header_xcom2_wotc> read_header(xcom_io& r)
+    {
+        xcom_version version = static_cast<xcom_version>(r.read_int());
+        if (!supported_version(version)) {
+            throw error::unsupported_version(version);
+        }
+
+        header hdr_xcom1;
+        header_xcom2_wotc hdr_xcom2;
+
+        switch (version)
+        {
+        case xcom_version::enemy_unknown:
+        case xcom_version::enemy_within:
+        case xcom_version::enemy_within_android:
+            hdr_xcom1 = decode_xcom1_header(r, version);
+            return hdr_xcom1;
+            break;
+
+        case xcom_version::xcom2_war_of_chosen:
+            hdr_xcom2 = decode_xcom2_header(r, version);
+            return hdr_xcom2;
+            break;
+        }
+
+    }
+
+
+    header decode_xcom1_header(xcom_io &r, xcom_version ver)
     {
         header hdr;
-        hdr.version = static_cast<xcom_version>(r.read_int());
-        if (!supported_version(hdr.version)) {
-            throw error::unsupported_version(hdr.version);
-        }
+        hdr.version = ver;
 
         hdr.uncompressed_size = r.read_int();
         hdr.game_number = r.read_int();
@@ -88,6 +119,58 @@ namespace xcom
         }
         return hdr;
     }
+
+
+    header_xcom2_wotc decode_xcom2_header(xcom_io& r, xcom_version ver)
+    {
+        uint32_t size_in_header_so_far = 4;
+
+        header_xcom2_wotc hdr;
+        hdr.version = ver;
+        hdr.header_size = r.read_int(); size_in_header_so_far += 4;
+        hdr.uncompressed_size = r.read_int(); size_in_header_so_far += 4;
+        hdr.game_number = r.read_int(); size_in_header_so_far += 4;
+        hdr.save_number = r.read_int(); size_in_header_so_far += 4;
+        hdr.save_description = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+        hdr.time = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+        hdr.map_command = r.read_string();
+        hdr.tactical_save = r.read_bool(); size_in_header_so_far += 4;
+        hdr.unknown1 = r.read_int(); size_in_header_so_far += 4;
+        hdr.autosave = r.read_bool(); size_in_header_so_far += 4;
+        hdr.unknown2 = r.read_int(); size_in_header_so_far += 4;
+        hdr.language = r.read_string(); size_in_header_so_far += 4;
+        hdr.unknown3 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown4 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown5 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown6 = r.read_int(); size_in_header_so_far += 4;
+        hdr.save_time = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+        hdr.mission_icon_resource = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+        hdr.save_description_no_date = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+        hdr.num_of_dlcs = r.read_int(); size_in_header_so_far += 4;
+        for (int i = 0; i < hdr.num_of_dlcs; ++i)
+        {
+            hdr.dlcs[i] = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+        }
+        hdr.num_of_packs = r.read_int();
+        for (int i = 0; i < hdr.num_of_packs; ++i)
+        {
+            hdr.packs[i] = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+        }
+        hdr.unknown8 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown9 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown10 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown11 = r.read_int(); size_in_header_so_far += 4;
+
+        hdr.mission_objective = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+
+        hdr.unknown12 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown13 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown14 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown15 = r.read_int(); size_in_header_so_far += 4;
+
+        return hdr;
+    }
+
 
     actor_table read_actor_table(xcom_io &r, xcom_version version)
     {
@@ -767,19 +850,20 @@ namespace xcom
         saved_game save;
 
         xcom_io rdr{ std::move(b) };
+        
         save.hdr = read_header(rdr);
-        if (save.hdr.tactical_save) {
+        if (std::get<0>(save.hdr).tactical_save) {
             throw xcom::error::general_exception("Saved games in tactical missions are not supported. Please try again with a geoscape save.");
         }
-        buffer<unsigned char> uncompressed_buf = decompress(rdr, static_cast<xcom_version>(save.hdr.version));
+        buffer<unsigned char> uncompressed_buf = decompress(rdr, static_cast<xcom_version>(std::get<0>(save.hdr).version));
 #ifdef _DEBUG
         FILE *fp = fopen("output.dat", "wb");
         fwrite(uncompressed_buf.buf.get(), 1, uncompressed_buf.length, fp);
         fclose(fp);
 #endif
         xcom_io uncompressed(std::move(uncompressed_buf));
-        save.actors = read_actor_table(uncompressed, save.hdr.version);
-        save.checkpoints = read_checkpoint_chunk_table(uncompressed, save.hdr.version);
+        save.actors = read_actor_table(uncompressed, std::get<0>(save.hdr).version);
+        save.checkpoints = read_checkpoint_chunk_table(uncompressed, std::get<0>(save.hdr).version);
 
         return save;
     }

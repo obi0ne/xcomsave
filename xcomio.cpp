@@ -29,18 +29,19 @@ xcomio.cpp - Low-level operations on an xcom io buffer.
 
 namespace xcom
 {
-    bool supported_version(xcom_version ver)
-    {
-        switch (ver)
-        {
-        case xcom_version::enemy_unknown:
-        case xcom_version::enemy_within:
-        case xcom_version::enemy_within_android:
-            return true;
-        default:
-            return false;
-        }
-    }
+	bool supported_version(xcom_version ver)
+	{
+		switch (ver)
+		{
+		case xcom_version::enemy_unknown:
+		case xcom_version::enemy_within:
+		case xcom_version::enemy_within_android:
+		case xcom_version::xcom2_war_of_chosen:
+			return true;
+		default:
+			return false;
+		}
+	}
 
     void xcom_io::seek(seek_kind k, std::ptrdiff_t offset)
     {
@@ -153,6 +154,64 @@ namespace xcom
                     return{ "", false };
                 }
             }
+            ptr_ += length;
+            return{ util::iso8859_1_to_utf8(str), false };
+        }
+    }
+
+    // debug function
+    xcom_string xcom_io::read_unicode_string_and_ince_hdr_pos(uint32_t& cur_pos, bool throw_on_error /*=true*/)
+    {
+        int32_t length = read_int();
+        if (length == 0) {
+            return{ "", false };
+        }
+
+        if (length < 0) {
+
+            // A UTF-16 encoded string.
+            length = -length;
+
+            if (!bounds_check(length)) {
+                if (throw_on_error) {
+                    throw error::format_exception(offset(), "read_string found an invalid string length");
+                }
+                else {
+                    return{ "", false };
+                }
+            }
+            const char16_t* str = reinterpret_cast<const char16_t*>(ptr_);
+            ptr_ += 2 * length;
+            return{ util::utf16_to_utf8(str), true };
+        }
+        else {
+            if (!bounds_check(length)) {
+                if (throw_on_error) {
+                    throw error::format_exception(offset(), "read_string found an invalid string length");
+                }
+                else {
+                    return{ "", false };
+                }
+            }
+
+            const char* str = reinterpret_cast<const char*>(ptr_);
+            size_t actual_length = strlen(str);
+
+            // Double check the length matches what we read from the file,
+            // considering the trailing null is counted in the length stored in
+            // the file.
+            if (static_cast<int32_t>(actual_length) != (length - 1))
+            {
+                if (throw_on_error) {
+                    throw error::format_exception(offset(), "string mismatch: expected length %d but found %d", length, actual_length);
+                }
+                else {
+                    return{ "", false };
+                }
+            }
+
+            cur_pos += (4/*STR length INT*/ + length); // inc pos
+
             ptr_ += length;
             return{ util::iso8859_1_to_utf8(str), false };
         }

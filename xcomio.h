@@ -116,6 +116,9 @@ namespace xcom
         // UTF-16 string.
         xcom_string read_unicode_string(bool throw_on_error = true);
 
+        // Debug function while decoding header
+        xcom_string read_unicode_string_and_ince_hdr_pos(uint32_t& cur_pos, bool throw_on_error = true);
+
         // Read a boolean value. Note bools take up 4 bytes in xcom saves.
         bool read_bool();
 

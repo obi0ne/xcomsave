@@ -27,6 +27,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <memory>
 #include <algorithm>
 #include <exception>
+#include <variant>
+
 
 namespace xcom
 {
@@ -35,8 +37,11 @@ namespace xcom
         invalid = 0,
         enemy_unknown = 0x0f,
         enemy_within = 0x10,
-        enemy_within_android = 0x13,
-        // xcom2 = 0x14 (not supported)
+        enemy_within_android = 0x13,        
+        //xcom2 = 0x14,
+        // xcom2_shens_last_gift ?? = 0x15 ?? (guessing, don't have it)
+        xcom2_war_of_chosen = 0x16
+        // xcom_chimera_squad = 0x17
     };
 
     bool supported_version(xcom_version ver);
@@ -138,6 +143,48 @@ namespace xcom
         int32_t profile_number; // Profile number (Android)
         xcom_string profile_date; // Profile date? (Android)
     };
+
+    // alias
+    using xcom_str_list = std::vector<xcom_string>;
+
+    struct header_xcom2_wotc : public header
+    {    
+        uint32_t header_size;
+
+        uint32_t compressed_crc;
+
+        uint32_t unknown1;
+        uint32_t unknown2;
+        uint32_t unknown3;
+        uint32_t unknown4;
+        uint32_t unknown5;
+        uint32_t unknown6;
+
+        xcom_string save_time;
+        xcom_string mission_icon_resource;
+        xcom_string save_description_no_date;
+
+        // DLCs installed
+        uint32_t num_of_dlcs;
+        xcom_str_list dlcs;
+
+        // Packs Installed
+        uint32_t num_of_packs;
+        xcom_str_list packs;
+
+        uint32_t unknown8;
+        uint32_t unknown9;
+        uint32_t unknown10;
+        uint32_t unknown11;
+
+        xcom_string mission_objective;
+
+        uint32_t unknown12;
+        uint32_t unknown13;
+        uint32_t unknown14;
+        uint32_t unknown15;
+    };
+
 
     using actor_table = std::vector<std::string>;
 
@@ -770,7 +817,7 @@ namespace xcom
     //    different.
     struct saved_game
     {
-        header hdr;
+        std::variant<header, header_xcom2_wotc> hdr;
         actor_table actors;
         checkpoint_chunk_table checkpoints;
     };
