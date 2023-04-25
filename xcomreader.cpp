@@ -129,16 +129,17 @@ namespace xcom
         hdr.version = ver;
         hdr.header_size = r.read_int(); size_in_header_so_far += 4;
         hdr.uncompressed_size = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown0 = r.read_int(); size_in_header_so_far += 4;
         hdr.game_number = r.read_int(); size_in_header_so_far += 4;
         hdr.save_number = r.read_int(); size_in_header_so_far += 4;
         hdr.save_description = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
         hdr.time = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
-        hdr.map_command = r.read_string();
+        hdr.map_command = r.read_string(); // we don't count this, too lazy to refactor to debug (manually calculated)
         hdr.tactical_save = r.read_bool(); size_in_header_so_far += 4;
         hdr.unknown1 = r.read_int(); size_in_header_so_far += 4;
         hdr.autosave = r.read_bool(); size_in_header_so_far += 4;
         hdr.unknown2 = r.read_int(); size_in_header_so_far += 4;
-        hdr.language = r.read_string(); size_in_header_so_far += 4;
+        hdr.language = r.read_string();  // we don't count this, too lazy to refactor to debug (manually calculated)
         hdr.unknown3 = r.read_int(); size_in_header_so_far += 4;
         hdr.unknown4 = r.read_int(); size_in_header_so_far += 4;
         hdr.unknown5 = r.read_int(); size_in_header_so_far += 4;
@@ -149,12 +150,12 @@ namespace xcom
         hdr.num_of_dlcs = r.read_int(); size_in_header_so_far += 4;
         for (int i = 0; i < hdr.num_of_dlcs; ++i)
         {
-            hdr.dlcs[i] = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+            hdr.dlcs.push_back(r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far));
         }
         hdr.num_of_packs = r.read_int();
         for (int i = 0; i < hdr.num_of_packs; ++i)
         {
-            hdr.packs[i] = r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far);
+            hdr.packs.push_back(r.read_unicode_string_and_ince_hdr_pos(size_in_header_so_far));
         }
         hdr.unknown8 = r.read_int(); size_in_header_so_far += 4;
         hdr.unknown9 = r.read_int(); size_in_header_so_far += 4;
@@ -167,6 +168,9 @@ namespace xcom
         hdr.unknown13 = r.read_int(); size_in_header_so_far += 4;
         hdr.unknown14 = r.read_int(); size_in_header_so_far += 4;
         hdr.unknown15 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown16 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown17 = r.read_int(); size_in_header_so_far += 4;
+        hdr.unknown18 = r.read_int(); size_in_header_so_far += 4;
 
         return hdr;
     }
