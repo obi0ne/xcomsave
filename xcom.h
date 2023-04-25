@@ -153,6 +153,7 @@ namespace xcom
 
         uint32_t compressed_crc;
 
+        uint32_t unknown0;
         uint32_t unknown1;
         uint32_t unknown2;
         uint32_t unknown3;
@@ -183,6 +184,9 @@ namespace xcom
         uint32_t unknown13;
         uint32_t unknown14;
         uint32_t unknown15;
+        uint32_t unknown16;
+        uint32_t unknown17;
+        uint32_t unknown18;
     };
 
 
