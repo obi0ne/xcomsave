@@ -65,6 +65,7 @@ namespace xcom
             break;
         }
 
+        return hdr_xcom1; // should never happen !
     }
 
 
@@ -184,10 +185,18 @@ namespace xcom
         // We expect all entries to be of the form <package> <0> <actor>
         // <instance>, or two entries per real actor.
         //can this assert be on the EU version? asssuming no:
-        if(xcom_version::enemy_unknown != version)
+        if(xcom_version::enemy_unknown != version && xcom_version::xcom2_war_of_chosen != version)
         {
             assert(actor_count % 2 == 0);
         }
+
+        if (xcom_version::xcom2_war_of_chosen == version)
+        {
+            int32_t unknown1_count = r.read_int();
+            int32_t unknown2_count = r.read_int();
+
+        }
+
 
         const int increment= (xcom_version::enemy_unknown == version)? 1 : 2;
         
@@ -703,6 +712,40 @@ namespace xcom
         return checkpoints;
     }
 
+    int32_t calculate_uncompressed_size_xcom2(xcom_io& r, uint32_t hdr_size)
+    {
+        // The compressed data begins 1024 bytes into the file.
+        //const unsigned char* p = r.start_.get() + 1024;
+
+        int32_t compressed_size;
+        int32_t uncompressed_size = 0;
+        r.seek(xcom_io::seek_kind::start, hdr_size);
+
+        do
+        {
+            // Expect the magic header value 0x9e2a83c1 at the start of each chunk
+            if (r.read_int() != UPK_Magic) {
+                throw error::format_exception(r.offset(),
+                    "failed to find compressed chunk header");
+            }
+
+            // Skip flags
+            (void)r.read_int();
+
+            // Compressed size is at p+8
+            compressed_size = r.read_int();
+
+            // Uncompressed size is at p+12
+            uncompressed_size += r.read_int();
+
+            // Skip to next chunk: include the 8 bytes of header in this chunk we didn't
+            // read (which sould be the compressed and uncompressed sizes repeated).
+            r.seek(xcom_io::seek_kind::current, compressed_size + 8);
+        } while (!r.eof());
+
+        return uncompressed_size;
+    }
+
     int32_t calculate_uncompressed_size(xcom_io &r)
     {
         // The compressed data begins 1024 bytes into the file.
@@ -743,6 +786,7 @@ namespace xcom
         {
             case xcom_version::enemy_unknown:
             case xcom_version::enemy_within:
+            case xcom_version::xcom2_war_of_chosen:
             {
                 lzo_init();
                 lzo_uint out_decompressed_size = decompressed_size;
@@ -776,16 +820,25 @@ namespace xcom
         }
     }
 
-    buffer<unsigned char> decompress(xcom_io &r, xcom_version version)
+    buffer<unsigned char> decompress(xcom_io &r, xcom_version version, uint32_t hdr_size = 0)
     {
-        int32_t total_uncompressed_size = calculate_uncompressed_size(r);
+        int32_t total_uncompressed_size = 0;
+        if (version == xcom_version::xcom2_war_of_chosen)
+        {
+            total_uncompressed_size = calculate_uncompressed_size_xcom2(r, hdr_size );
+        }
+        else
+        {
+            total_uncompressed_size = calculate_uncompressed_size(r);
+        }
+        
         if (total_uncompressed_size < 0) {
             throw error::format_exception(r.offset(), "found no uncompressed data in save");
         }
 
         std::unique_ptr<unsigned char[]> buf = std::make_unique<unsigned char[]>(total_uncompressed_size);
         // Start back at the beginning of the compressed data.
-        r.seek(xcom_io::seek_kind::start, compressed_data_start);
+        r.seek(xcom_io::seek_kind::start, (version == xcom_version::xcom2_war_of_chosen)?hdr_size:compressed_data_start);
 
         unsigned char *outp = buf.get();
         int32_t bytes_remaining = total_uncompressed_size;
@@ -856,18 +909,35 @@ namespace xcom
         xcom_io rdr{ std::move(b) };
         
         save.hdr = read_header(rdr);
-        if (std::get<0>(save.hdr).tactical_save) {
-            throw xcom::error::general_exception("Saved games in tactical missions are not supported. Please try again with a geoscape save.");
-        }
-        buffer<unsigned char> uncompressed_buf = decompress(rdr, static_cast<xcom_version>(std::get<0>(save.hdr).version));
+        
+        std::visit([&](auto&& hdr) {
+            
+            if (hdr.tactical_save) {
+                throw xcom::error::general_exception("Saved games in tactical missions are not supported. Please try again with a geoscape save.");
+            }
+
+            auto game_version = static_cast<xcom_version>(hdr.version);
+            
+            uint32_t header_size = 0;
+            if constexpr (std::is_same_v<std::decay_t<decltype(hdr)>, header_xcom2_wotc>)
+            {
+                header_size = hdr.header_size;
+            }
+            else
+            {
+                header_size = 0;
+            }
+            buffer<unsigned char> uncompressed_buf = decompress(rdr, game_version, (game_version == xcom_version::xcom2_war_of_chosen)? header_size:0);
 #ifdef _DEBUG
-        FILE *fp = fopen("output.dat", "wb");
-        fwrite(uncompressed_buf.buf.get(), 1, uncompressed_buf.length, fp);
-        fclose(fp);
+            FILE* fp = fopen("output.dat", "wb");
+            fwrite(uncompressed_buf.buf.get(), 1, uncompressed_buf.length, fp);
+            fclose(fp);
 #endif
-        xcom_io uncompressed(std::move(uncompressed_buf));
-        save.actors = read_actor_table(uncompressed, std::get<0>(save.hdr).version);
-        save.checkpoints = read_checkpoint_chunk_table(uncompressed, std::get<0>(save.hdr).version);
+            xcom_io uncompressed(std::move(uncompressed_buf));
+            save.actors = read_actor_table(uncompressed, hdr.version);
+            save.checkpoints = read_checkpoint_chunk_table(uncompressed, hdr.version);
+
+            }, save.hdr);
 
         return save;
     }
