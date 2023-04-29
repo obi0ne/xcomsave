@@ -688,7 +688,7 @@ saved_game build_save(const Json& json)
 
     save.hdr = build_header(json["header"]);
     save.actors = build_actor_table(json["actor_table"]);
-    save.checkpoints = build_checkpoint_chunk_table(json["checkpoints"], std::get<0>(save.hdr).version);
+    save.checkpoints = build_checkpoint_chunk_table(json["checkpoints"], save.hdr.version);
     return save;
 }
 

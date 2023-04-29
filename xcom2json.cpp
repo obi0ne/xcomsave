@@ -524,7 +524,7 @@ void buildJson(const saved_game& save, json_writer& w)
     w.begin_object();
 
     // Write the header
-    const header &hdr = std::get<0>(save.hdr);
+    const header &hdr = save.hdr;
 
     w.write_key("header");
     w.begin_object();
@@ -612,9 +612,9 @@ int main(int argc, char *argv[])
     }
 
     try {
-        saved_game save = read_xcom_save(infile);
+        std::variant<saved_game, saved_game_xcom2> save = read_xcom_save(infile);
         json_writer w{ outfile };
-        buildJson(save, w);
+        buildJson(std::get<saved_game>(save), w); // TODO: Modify to support both
         return 0;
     }
     catch (const error::xcom_exception& e) {

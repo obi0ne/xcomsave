@@ -190,6 +190,16 @@ namespace xcom
     };
 
 
+    struct xcom2_actor_data
+    {
+        uint32_t serialized_idx;
+        std::string object_name;
+        uint32_t parent_id;
+        uint32_t object_size; // not sure ?
+    };
+
+    using actor_table_xcom2 = std::vector<xcom2_actor_data>;
+
     using actor_table = std::vector<std::string>;
 
     struct property_visitor;
@@ -821,13 +831,22 @@ namespace xcom
     //    different.
     struct saved_game
     {
-        std::variant<header, header_xcom2_wotc> hdr;
+        header hdr;
         actor_table actors;
         checkpoint_chunk_table checkpoints;
     };
 
-    saved_game read_xcom_save(const std::string &infile);
-    saved_game read_xcom_save(buffer<unsigned char>&& buf);
+    struct saved_game_xcom2
+    {
+        header_xcom2_wotc hdr;
+        actor_table_xcom2 actors;
+        checkpoint_chunk_table checkpoints;
+    };
+
+
+
+    std::variant<saved_game, saved_game_xcom2> read_xcom_save(const std::string &infile);
+    std::variant<saved_game, saved_game_xcom2> read_xcom_save(buffer<unsigned char>&& buf);
     void write_xcom_save(const saved_game &save, const std::string &outfile);
     buffer<unsigned char> write_xcom_save(const saved_game &save);
 
