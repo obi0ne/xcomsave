@@ -460,7 +460,7 @@ namespace xcom
 
 			property_ptr prop;
 			if (prop_type.compare("ObjectProperty") == 0) {
-				if (xcom_version::enemy_unknown == version)
+				if ((xcom_version::enemy_unknown == version) || (xcom_version::xcom2_war_of_chosen == version) )
 				{
 					assert(prop_size == 4);
 					int32_t actor = r.read_int();
@@ -711,6 +711,47 @@ namespace xcom
 
 		return checkpoints;
 	}
+
+	dump_actors_state_table read_actors_state_table_xcom2(xcom_io& r, actor_table_xcom2 actors_table, xcom_version version)
+	{
+		dump_actors_state_table actors_state_table;
+		uint32_t dummy = 0;
+		std::string propertyName = "";
+		std::string propertyType = "";
+
+		
+
+		for (size_t iActorIdx = 0; iActorIdx < actors_table.size(); iActorIdx++)
+		{
+			DumpActorState obj_state;
+			
+			int32_t props_length = r.read_int(); 
+			
+			size_t start_offset = r.offset();
+			dummy = r.read_int();
+			
+			// build object dump
+			obj_state.class_name = actors_table[iActorIdx].object_name;
+			obj_state.properties = read_properties(r, version);
+
+			auto prop_size_actually_read = r.offset() - static_cast<int32_t>(start_offset);
+
+			if (prop_size_actually_read < props_length) {
+				auto pad_size = static_cast<int32_t>(props_length - (r.offset() - start_offset));
+
+				for (unsigned int i = 0; i < pad_size; ++i) {
+					if (r.read_byte() != 0) {
+						throw error::format_exception(r.offset(), "found non-zero padding byte");
+					}
+				}
+			}
+
+			actors_state_table.push_back(std::move(obj_state));			
+		}		
+
+		return actors_state_table;
+	}
+
 
 	int32_t calculate_uncompressed_size_xcom2(xcom_io& r, uint32_t hdr_size)
 	{
@@ -970,12 +1011,12 @@ namespace xcom
 			buffer<unsigned char> uncompressed_buf = decompress(rdr, game_version, header_size);
 
 #ifdef _DEBUG
-			dump_data_to_file(uncompressed_buf, "output.dat");
+//			dump_data_to_file(uncompressed_buf, "output.dat");
 #endif
 
 			xcom_io uncompressed(std::move(uncompressed_buf));
 			mySave.actors = read_actor_table_xcom2(uncompressed, game_version);
-			mySave.checkpoints = read_checkpoint_chunk_table(uncompressed, game_version);
+			mySave.actors_state = read_actors_state_table_xcom2(uncompressed, mySave.actors, game_version);
 		}
 		}
 		return save;

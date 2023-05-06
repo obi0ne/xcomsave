@@ -744,6 +744,22 @@ namespace xcom
 
     using checkpoint_table = std::vector<checkpoint>;
 
+
+    struct DumpActorState
+    {
+        // The class name of the class this actor is an instance of
+        std::string class_name;
+
+        // A list of properties (e.g. the member variables of the actor instance)
+        property_list properties;
+
+        // The number of padding bytes (all zeros) appended to the checkpoint.
+        uint32_t pad_size;
+    };
+
+    using dump_actors_state_table = std::vector<DumpActorState>;
+
+
     // An actor template. Unused by strategy saves.
     struct actor_template
     {
@@ -840,7 +856,7 @@ namespace xcom
     {
         header_xcom2_wotc hdr;
         actor_table_xcom2 actors;
-        checkpoint_chunk_table checkpoints;
+        dump_actors_state_table actors_state;
     };
 
 
