@@ -531,6 +531,10 @@ namespace xcom
 				int32_t number = r.read_int();
 				prop = std::make_unique<name_property>(name, str, number);
 			}
+			else if (prop_type.compare("InterfaceProperty") == 0) {
+				int32_t number = r.read_int();
+				prop = std::make_unique<interface_property>(name, number);
+			}
 			else
 			{
 				throw error::format_exception(r.offset(),

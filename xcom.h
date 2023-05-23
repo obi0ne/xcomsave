@@ -254,6 +254,7 @@ namespace xcom
             string_array_property,
             enum_array_property,
             static_array_property,
+            interface_property,
             last_property
         };
 
@@ -287,6 +288,7 @@ namespace xcom
     struct string_array_property;
     struct enum_array_property;
     struct static_array_property;
+    struct interface_property;
 
     // XCOM enum values are represented by a string enumerator value (e.g. eFoo_Value) and
     // a corresponding integer. The integer is always 0 for standard enums but LW extended
@@ -301,6 +303,7 @@ namespace xcom
     struct property_visitor
     {
         virtual void visit(int_property*) = 0;
+        virtual void visit(interface_property*) = 0;
         virtual void visit(float_property*) = 0;
         virtual void visit(bool_property*) = 0;
         virtual void visit(string_property*) = 0;
@@ -704,6 +707,28 @@ namespace xcom
 
         property_list properties;
     };
+
+
+    // An int property contains a 32-bit signed integer value.
+    struct interface_property : public property
+    {
+        interface_property(const std::string& n, int32_t v) :
+            property(n, kind_t::interface_property), value(v) {}
+
+        virtual int32_t size() const {
+            return 4;
+        }
+
+        virtual void accept(property_visitor* v) {
+            v->visit(this);
+        }
+
+        int32_t value;
+    };
+
+
+
+
 
     // A 3-d vector.
     using uvector = std::array<float, 3>;

@@ -107,6 +107,11 @@ namespace xcom
             io_.write_int(prop->value);
         }
 
+        virtual void visit(interface_property* prop) override
+        {
+            io_.write_int(prop->value);
+        }
+
         virtual void visit(float_property *prop) override
         {
             io_.write_float(prop->value);
